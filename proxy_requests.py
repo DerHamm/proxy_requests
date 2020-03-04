@@ -35,7 +35,10 @@ def url_generator():
 
 class ProxyRequests(object):
 
-    def __init__(self, url):
+    def __init__(self, url, username=None, password=None):
+        self.username = username
+        self.password = password
+
         self.URLS = url_generator()
         self.sockets = Sockets()
         self.url = url
@@ -46,7 +49,11 @@ class ProxyRequests(object):
         self.json = None
         self.timeout = 8.0
         self.errs = ('ConnectTimeout', 'ProxyError', 'SSLError')
-
+    
+    @property
+    def auth(self):
+        return (self.username, self.password) if self.username and self.password else None
+    
     def acquire_sockets(self):
 
         r = requests.get(next(self.URLS))
@@ -105,8 +112,14 @@ class ProxyRequests(object):
             self.limit_succeeded()
 
     def try_request(self, method_name, **kwargs):
-
         current_socket = self.get_current_socket()
+        
+        kwargs.setdefault('timeout', self.timeout)
+        
+        if self.auth is not None:
+            kwargs.setdefault('auth', self.auth)
+        
+        kwargs.setdefault('proxies', self.proxies_dict)
 
         # args[0] = method name
         if method_name == 'get':
@@ -164,21 +177,6 @@ class ProxyRequests(object):
 
     def __str__(self):
         return str(self.request)
-
-
-class ProxyRequestsBasicAuth(ProxyRequests):
-    def __init__(self, url, username, password):
-        super().__init__(url)
-        self.username = username
-        self.password = password
-
-    @property
-    def auth(self):
-        return (self.username, self.password)
-
-    def try_request(self, method_name, **kwargs):
-        kwargs.setdefault('auth', self.auth)
-        super().try_request(method_name, **kwargs)
 
 
 class PoolSucceeded(Exception):

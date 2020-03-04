@@ -34,10 +34,15 @@ def url_generator():
 
 
 class ProxyRequests(object):
+    ANONYMITIES = {'all': 0,
+                   'elite': 2,
+                   'anonymous': 1}
 
-    def __init__(self, url, username=None, password=None):
+    def __init__(self, url, username=None, password=None, anonymity=None):
         self.username = username
         self.password = password
+
+        self.anonymity = anonymity if anonymity is not None else self.ANONYMITIES['all']
 
         self.URLS = url_generator()
         self.sockets = Sockets()
@@ -49,11 +54,28 @@ class ProxyRequests(object):
         self.json = None
         self.timeout = 8.0
         self.errs = ('ConnectTimeout', 'ProxyError', 'SSLError')
-    
+
     @property
     def auth(self):
         return (self.username, self.password) if self.username and self.password else None
-    
+
+    def anonymity_check(self, tag):
+        # Evaluates if the current proxy server is within the range of anonymity while parsing
+
+        result = False
+        searched = tag.__str__().lower()
+
+        if self.anonymity == self.ANONYMITIES['all']:
+            result = True
+        elif self.anonymity == self.ANONYMITIES['anonymous']:
+            result = 'anonymous' in searched or 'elite' in searched
+        elif self.anonymity == self.ANONYMITIES['elite']:
+            result = 'elite' in searched
+        else:
+            pass
+
+        return result
+
     def acquire_sockets(self):
 
         r = requests.get(next(self.URLS))
@@ -67,6 +89,9 @@ class ProxyRequests(object):
         loop_range = int(len(entries) / 3)
 
         for i in range(0, loop_range, 4):
+            if not self.anonymity_check(entries[i + 3]):
+                continue
+
             ip_tag = entries[i].__str__()
             port_tag = entries[i + 1].__str__()
 
@@ -111,17 +136,19 @@ class ProxyRequests(object):
         else:
             self.limit_succeeded()
 
-    def try_request(self, method_name, **kwargs):
-        current_socket = self.get_current_socket()
-        
+    def set_defaults(self, kwargs):
+        # kwargs has to be the kwargs from self.try_request to add the defaults to it
         kwargs.setdefault('timeout', self.timeout)
-        
+
         if self.auth is not None:
             kwargs.setdefault('auth', self.auth)
-        
+
         kwargs.setdefault('proxies', self.proxies_dict)
 
-        # args[0] = method name
+    def try_request(self, method_name, **kwargs):
+        current_socket = self.get_current_socket()
+        self.set_defaults(kwargs)
+
         if method_name == 'get':
             method = requests.get
         elif method_name == 'post':
@@ -140,7 +167,7 @@ class ProxyRequests(object):
         self.try_request('get')
 
     def get_with_headers(self):
-        self.try_request('get',  headers=self.headers)
+        self.try_request('get', headers=self.headers)
 
     def post(self, data):
         self.try_request('post', json=data)

@@ -1,13 +1,42 @@
 import requests
 from random import randint
-from re import findall
-from traceback import print_exc
-# rootVIII
+
+from bs4 import BeautifulSoup
 
 
-class ProxyRequests:
+class Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class Sockets(list, metaclass=Singleton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def append(self, *args, **kwargs):
+        if len(args) >= 2:
+            raise ValueError('Cannot pass multiple value into sockets list (yet)')
+
+        # Don't let duplicates into the list
+        if args[0] not in self:
+            super().append(*args, **kwargs)
+
+
+def url_generator():
+    yield 'https://free-proxy-list.net/'
+    yield 'https://www.sslproxies.org/'
+    yield 'https://www.us-proxy.org/'
+
+
+class ProxyRequests(object):
+
     def __init__(self, url):
-        self.sockets = []
+        self.URLS = url_generator()
+        self.sockets = Sockets()
         self.url = url
         self.request, self.proxy = '', ''
         self.proxy_used, self.raw_content = '', ''
@@ -16,14 +45,35 @@ class ProxyRequests:
         self.json = None
         self.timeout = 8.0
         self.errs = ('ConnectTimeout', 'ProxyError', 'SSLError')
-        self.acquire_sockets()
 
-    # get a list of sockets from sslproxies.org
     def acquire_sockets(self):
-        r = requests.get('https://www.sslproxies.org/')
-        matches = findall(r"<td>\d+\.\d+\.\d+\.\d+</td><td>\d+</td>", r.text)
-        revised = [m.replace('<td>', '') for m in matches]
-        self.sockets = [s[:-5].replace('</td>', ':') for s in revised][:16]
+        try:
+            r = requests.get(next(self.URLS))
+            while r.status_code != 200:
+                r = requests.get(next(self.URLS))
+        except StopIteration:
+            return self.acquire_sockets()
+        finally:
+            self.URLS = url_generator()
+
+        # New approach
+        soup = BeautifulSoup(r.text, 'html.parser')
+
+        # We will get ip, port and country if we search for columns without a class
+        entries = soup.find_all('td', class_='')
+        sockets = Sockets()
+        loop_range = int(len(entries) / 3)
+        for i in range(0, loop_range, 4):
+            ip_tag = entries[i].__str__()
+            port_tag = entries[i + 1].__str__()
+
+            ip = ip_tag[4:len(ip_tag) - 5]
+            port = port_tag[4:len(port_tag) - 5]
+
+            socket_string = '{}:{}'.format(ip, port)
+            sockets.append(socket_string)
+
+        self.sockets = sockets
 
     def set_request_data(self, req, socket):
         self.request = req.text
@@ -43,12 +93,9 @@ class ProxyRequests:
         if type(err).__name__ not in self.errs:
             raise err
 
-    @staticmethod
-    def limit_succeeded():
-        try:
-            raise PoolSucceeded('Proxy Pool has been emptied')
-        except PoolSucceeded:
-            print_exc(limit=1)
+    def limit_succeeded(self):
+        print('Limit succeeded, trying to gather more proxies')
+        self.acquire_sockets()
 
     def get(self):
         if len(self.sockets) > 0:
@@ -332,3 +379,5 @@ class ProxyRequestsBasicAuth(ProxyRequests):
 
 class PoolSucceeded(Exception):
     pass
+
+

@@ -27,9 +27,10 @@ class Sockets(list, metaclass=Singleton):
 
 
 def url_generator():
-    yield 'https://free-proxy-list.net/'
-    yield 'https://www.sslproxies.org/'
-    yield 'https://www.us-proxy.org/'
+    while True:
+        yield 'https://free-proxy-list.net/'
+        yield 'https://www.sslproxies.org/'
+        yield 'https://www.us-proxy.org/'
 
 
 class ProxyRequests(object):
@@ -47,14 +48,8 @@ class ProxyRequests(object):
         self.errs = ('ConnectTimeout', 'ProxyError', 'SSLError')
 
     def acquire_sockets(self):
-        try:
-            r = requests.get(next(self.URLS))
-            while r.status_code != 200:
-                r = requests.get(next(self.URLS))
-        except StopIteration:
-            return self.acquire_sockets()
-        finally:
-            self.URLS = url_generator()
+
+        r = requests.get(next(self.URLS))
 
         # New approach
         soup = BeautifulSoup(r.text, 'html.parser')
@@ -63,6 +58,7 @@ class ProxyRequests(object):
         entries = soup.find_all('td', class_='')
         sockets = Sockets()
         loop_range = int(len(entries) / 3)
+
         for i in range(0, loop_range, 4):
             ip_tag = entries[i].__str__()
             port_tag = entries[i + 1].__str__()
@@ -97,126 +93,53 @@ class ProxyRequests(object):
         print('Limit succeeded, trying to gather more proxies')
         self.acquire_sockets()
 
-    def get(self):
+    def get_current_socket(self):
         if len(self.sockets) > 0:
             current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
+            self.proxies_dict = {
                 'http': 'http://' + current_socket,
                 'https': 'https://' + current_socket
             }
-            try:
-                request = requests.get(
-                    self.url,
-                    timeout=self.timeout,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.get()
+            return current_socket
         else:
             self.limit_succeeded()
+
+    def try_request(self, method_name, **kwargs):
+
+        current_socket = self.get_current_socket()
+
+        # args[0] = method name
+        if method_name == 'get':
+            method = requests.get
+        elif method_name == 'post':
+            method = requests.post
+        else:
+            raise ValueError('Only get and post supported right now')
+
+        try:
+            request = method(self.url, **kwargs)
+            self.set_request_data(request, current_socket)
+        except Exception as e:
+            self.is_err(e)
+            self.get()
+
+    def get(self):
+        self.try_request('get')
 
     def get_with_headers(self):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.get(
-                    self.url,
-                    timeout=self.timeout,
-                    proxies=proxies,
-                    headers=self.headers)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.get_with_headers()
-        else:
-            self.limit_succeeded()
+        self.try_request('get',  headers=self.headers)
 
     def post(self, data):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    json=data,
-                    timeout=self.timeout,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post(data)
-            else:
-                self.limit_succeeded()
+        self.try_request('post', json=data)
 
     def post_with_headers(self, data):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    json=data,
-                    timeout=self.timeout,
-                    headers=self.headers,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post_with_headers(data)
-        else:
-            self.limit_succeeded()
+        self.try_request('post', json=data, headers=self.headers)
 
     def post_file(self):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    files=self.file_dict,
-                    timeout=self.timeout,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post_file()
-        else:
-            self.limit_succeeded()
+        self.try_request('post', files=self.file_dict)
 
     def post_file_with_headers(self):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    files=self.file_dict,
-                    timeout=self.timeout,
-                    headers=self.headers,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post_file_with_headers()
-        else:
-            self.limit_succeeded()
+        self.try_request('post', files=self.file_dict, headers=self.headers)
 
     def get_headers(self):
         return self.headers
@@ -249,135 +172,14 @@ class ProxyRequestsBasicAuth(ProxyRequests):
         self.username = username
         self.password = password
 
-    def get(self):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.get(
-                    self.url,
-                    auth=(self.username, self.password),
-                    timeout=self.timeout,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.get()
-        else:
-            self.limit_succeeded()
+    @property
+    def auth(self):
+        return (self.username, self.password)
 
-    def get_with_headers(self):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.get(
-                    self.url,
-                    auth=(self.username, self.password),
-                    timeout=self.timeout,
-                    proxies=proxies,
-                    headers=self.headers)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.get_with_headers()
-        else:
-            self.limit_succeeded()
-
-    def post(self, data):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    json=data,
-                    auth=(self.username, self.password),
-                    timeout=self.timeout,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post(data)
-        else:
-            self.limit_succeeded()
-
-    def post_with_headers(self, data):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    json=data,
-                    auth=(self.username, self.password),
-                    timeout=self.timeout,
-                    headers=self.headers,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post_with_headers(data)
-        else:
-            self.limit_succeeded()
-
-    def post_file(self):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    files=self.file_dict,
-                    auth=(self.username, self.password),
-                    timeout=self.timeout,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post_file()
-        else:
-            self.limit_succeeded()
-
-    def post_file_with_headers(self):
-        if len(self.sockets) > 0:
-            current_socket = self.sockets.pop(self.rand_sock())
-            proxies = {
-                'http': 'http://' + current_socket,
-                'https': 'https://' + current_socket
-            }
-            try:
-                request = requests.post(
-                    self.url,
-                    files=self.file_dict,
-                    auth=(self.username, self.password),
-                    timeout=self.timeout,
-                    headers=self.headers,
-                    proxies=proxies)
-                self.set_request_data(request, current_socket)
-            except Exception as e:
-                self.is_err(e)
-                self.post_file_with_headers()
-        else:
-            self.limit_succeeded()
+    def try_request(self, method_name, **kwargs):
+        kwargs.setdefault('auth', self.auth)
+        super().try_request(method_name, **kwargs)
 
 
 class PoolSucceeded(Exception):
     pass
-
-

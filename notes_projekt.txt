@@ -1,0 +1,43 @@
+Unser Produkt KKG hat eine .exe als Schnittstelle zu den verschiedenen DMS Systemen
+
+KKG übergibt dazu eine XML-Datei mit den Pfad zu einem Dokument und allen relevanten Metainformationen
+
+Die .exe kommt von einem externen Entwickler, der Quellcode steht uns aber zur Verfügung
+
+Diese .exe soll neu geschrieben werden, weil der Code nur sehr schwer zu warten ist und ein großer Teil des Projektes überhaupt nicht genutzt wird
+
+Zur Zeit unterstützen wir 5 verschiedene DMS, die alle entweder über SOAP-Requests oder über ein COM-Objekt kommunizieren
+
+Zusätzlich soll es noch die Funktion geben, die Dokumente an einen Ordner im OS zu schicken, weil einige DMS-Systeme nur über Filewatcher Dokumente importieren können
+
+Jede Aktion im DMS muss protokolliert werden
+
+Es soll eine Oberfläche, die das Protokoll ausgibt geben. Auf dieser Oberfläche soll der Benutzer auch die Möglichkeit haben, zu testen, ob die Verbindung zu seinem DMS möglich ist.
+Dadurch kann man prüfen ob man alles richtig konfiguriert hat.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Unser Entwicklerteam arbeitet schon seit lang vor meiner Zeit auf eine agile Weise, aber wir haben nie ein richtiges agiles Prinzip wie Scrum verfolgt.
+
+In unserer Firma wurde ein Prozess- und Projektmanagemant Tool entwickelt, was zur Zeit an den Markt gebracht wird. Dieses ist auch schon seit Jahren bei uns im Haus im Einsatz.
+
+Leider sind die Formulierungen der Aufgaben von unserem Product Owner immer nur sehr wage und beinhalten keine technischen Details
+
+Allerdings dürfen wir den Projektplan auch nicht nach unseren Vorstellungen umdefinieren, weil der Product Owner das wollen würde.
+
+Also möchten wir unser eigenes Scrum-Task-Board entwickeln (ähnlich wie Jira oder Trello).
+
+Dieses Tool soll die Vorgangsdaten über die REST-API unseres Projektmanagement-Tools beziehen und unserem Team erlauben, aus den Vorgängen vom Product Owner (User Stories), einzelne Aufgaben (Tasks) zu definieren.
+
+Mit der Einführung des Tools würden wir alle 1-2 Wochen ein Sprint-Planning machen und die wichtigsten 10-15 Vorgänge ins Back-Log vom Task-Board aufnehmen und dieses bis zum Ende des Sprints bearbeiten.
+
+Über die Überfläche können wir die einzelnen Vorgänge in Unterpunkte aufbrechen.
+
+Im Endeffekt wäre das Tool nicht anders als Trello.com , nur die Spalten vom Sprint werden von uns vordefiniert.
+Der große Unterschied, der auch die Make-Or-Buy Entscheidung ausmacht, ist dass wir die Zeitbuchungen nicht mehr über unser Projektmanagement-Tool machen, sondern diese würden automatisch beginnen,
+wenn jemand die erste Task aus einer Story bearbeitet und auch automatisch beendet werden, sobald alle Tasks einer Story abgeschlossen sind, bzw. die zugewiesene Ressource sich abmeldet
+
+
+
+
+
